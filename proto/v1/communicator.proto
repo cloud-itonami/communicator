@@ -1,0 +1,244 @@
+syntax = "proto3";
+
+package communicator;
+
+option go_package = "github.com/etzhayyim/kyber-erp/gen/communicator";
+
+import "google/protobuf/timestamp.proto";
+
+enum ChannelType {
+  CHANNEL_TYPE_UNSPECIFIED = 0;
+  CHANNEL_TYPE_EMAIL = 1;
+}
+
+enum ProviderType {
+  PROVIDER_TYPE_UNSPECIFIED = 0;
+  PROVIDER_TYPE_AUTO = 1;
+  PROVIDER_TYPE_GMAIL = 2;
+  PROVIDER_TYPE_OUTLOOK = 3;
+}
+
+enum ConversationStage {
+  CONVERSATION_STAGE_UNSPECIFIED = 0;
+  CONVERSATION_STAGE_INTAKE = 1;
+  CONVERSATION_STAGE_ANALYZE = 2;
+  CONVERSATION_STAGE_STRATEGIZE = 3;
+  CONVERSATION_STAGE_DRAFT = 4;
+  CONVERSATION_STAGE_PENDING_APPROVAL = 5;
+  CONVERSATION_STAGE_DISPATCHED = 6;
+  CONVERSATION_STAGE_WAITING_REPLY = 7;
+  CONVERSATION_STAGE_CLOSED = 8;
+}
+
+enum ApprovalState {
+  APPROVAL_STATE_UNSPECIFIED = 0;
+  APPROVAL_STATE_NOT_REQUIRED = 1;
+  APPROVAL_STATE_PENDING = 2;
+  APPROVAL_STATE_APPROVED = 3;
+  APPROVAL_STATE_REJECTED = 4;
+}
+
+enum RiskLevel {
+  RISK_LEVEL_UNSPECIFIED = 0;
+  RISK_LEVEL_LOW = 1;
+  RISK_LEVEL_MEDIUM = 2;
+  RISK_LEVEL_HIGH = 3;
+  RISK_LEVEL_BLOCKED = 4;
+}
+
+enum DeliveryState {
+  DELIVERY_STATE_UNSPECIFIED = 0;
+  DELIVERY_STATE_PREPARING = 1;
+  DELIVERY_STATE_SENT = 2;
+  DELIVERY_STATE_DELIVERED = 3;
+  DELIVERY_STATE_FAILED = 4;
+  DELIVERY_STATE_RETRYING = 5;
+  DELIVERY_STATE_ACTION_REQUIRED_AUTH = 6;
+  DELIVERY_STATE_BLOCKED_POLICY = 7;
+}
+
+enum EmotionSignalSource {
+  EMOTION_SIGNAL_SOURCE_UNSPECIFIED = 0;
+  EMOTION_SIGNAL_SOURCE_MESSAGE_BODY = 1;
+  EMOTION_SIGNAL_SOURCE_THREAD_TREND = 2;
+  EMOTION_SIGNAL_SOURCE_SUBJECT_LINE = 3;
+}
+
+message Party {
+  string user_id = 1;
+  string display_name = 2;
+  string email = 3;
+  string organization = 4;
+}
+
+message EmotionalSignal {
+  string signal_id = 1;
+  EmotionSignalSource source = 2;
+  string model_version = 3;
+  float valence = 4;
+  float arousal = 5;
+  float dominance = 6;
+  float urgency = 7;
+  float confidence = 8;
+  repeated string emotion_labels = 9;
+  google.protobuf.Timestamp analyzed_at = 10;
+}
+
+message CommunicationPolicy {
+  bool require_approval_for_high_risk = 1;
+  repeated string blocked_terms = 2;
+  repeated string compliance_tags = 3;
+  string policy_profile = 4;
+}
+
+message ConversationContext {
+  string tenant_id = 1;
+  string conversation_id = 2;
+  string objective = 3;
+  ChannelType channel = 4;
+  ProviderType provider_preference = 5;
+  Party sender = 6;
+  repeated Party recipients = 7;
+  repeated string related_thread_ids = 8;
+  map<string, string> metadata = 9;
+}
+
+message DraftMessage {
+  string draft_id = 1;
+  string subject = 2;
+  string body_text = 3;
+  string body_html = 4;
+  string tone_label = 5;
+  string rationale = 6;
+  RiskLevel risk_level = 7;
+  ApprovalState approval_state = 8;
+  repeated EmotionalSignal emotional_signals = 9;
+  google.protobuf.Timestamp created_at = 10;
+}
+
+message DeliveryRecord {
+  string delivery_id = 1;
+  string conversation_id = 2;
+  ProviderType provider = 3;
+  DeliveryState state = 4;
+  string external_message_id = 5;
+  string error_message = 6;
+  int32 retry_count = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message ConversationState {
+  string conversation_id = 1;
+  ConversationStage stage = 2;
+  RiskLevel risk_level = 3;
+  ApprovalState approval_state = 4;
+  ProviderType selected_provider = 5;
+  string next_action = 6;
+  repeated EmotionalSignal latest_signals = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message PlanConversationRequest {
+  ConversationContext context = 1;
+  CommunicationPolicy policy = 2;
+  string latest_inbound_text = 3;
+}
+
+message PlanConversationResponse {
+  ConversationState state = 1;
+  string intent = 2;
+  string recommended_tone = 3;
+  string strategy_summary = 4;
+  repeated string next_action_candidates = 5;
+}
+
+message GenerateDraftRequest {
+  ConversationContext context = 1;
+  CommunicationPolicy policy = 2;
+  string intent = 3;
+  string style_hint = 4;
+  repeated EmotionalSignal emotional_signals = 5;
+}
+
+message GenerateDraftResponse {
+  DraftMessage draft = 1;
+}
+
+message ApproveDraftRequest {
+  string draft_id = 1;
+  string approver_user_id = 2;
+  bool approved = 3;
+  string comment = 4;
+}
+
+message ApproveDraftResponse {
+  DraftMessage draft = 1;
+}
+
+message DispatchMessageRequest {
+  string conversation_id = 1;
+  string draft_id = 2;
+  ProviderType provider_override = 3;
+  string idempotency_key = 4;
+}
+
+message DispatchMessageResponse {
+  DeliveryRecord delivery = 1;
+}
+
+message IngestInboundMessageRequest {
+  string conversation_id = 1;
+  ProviderType provider = 2;
+  string external_message_id = 3;
+  string from_email = 4;
+  string subject = 5;
+  string body_text = 6;
+  google.protobuf.Timestamp received_at = 7;
+}
+
+message IngestInboundMessageResponse {
+  ConversationState state = 1;
+  string recommended_next_action = 2;
+}
+
+message GetConversationStateRequest {
+  string conversation_id = 1;
+}
+
+message GetConversationStateResponse {
+  ConversationState state = 1;
+}
+
+message ListPendingApprovalsRequest {
+  string tenant_id = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+message PendingApprovalItem {
+  string conversation_id = 1;
+  string draft_id = 2;
+  string subject = 3;
+  RiskLevel risk_level = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+message ListPendingApprovalsResponse {
+  repeated PendingApprovalItem items = 1;
+  string next_page_token = 2;
+}
+
+// CommunicatorAgentService defines the orchestration boundary for external
+// communication. Implementations are expected to integrate with:
+// - etzhayyim-project-mailer
+// - etzhayyim-project-external-service-adapter (gmail/outlook)
+// - etzhayyim-project-emotional-analytics
+service CommunicatorAgentService {
+  rpc PlanConversation(PlanConversationRequest) returns (PlanConversationResponse);
+  rpc GenerateDraft(GenerateDraftRequest) returns (GenerateDraftResponse);
+  rpc ApproveDraft(ApproveDraftRequest) returns (ApproveDraftResponse);
+  rpc DispatchMessage(DispatchMessageRequest) returns (DispatchMessageResponse);
+  rpc IngestInboundMessage(IngestInboundMessageRequest) returns (IngestInboundMessageResponse);
+  rpc GetConversationState(GetConversationStateRequest) returns (GetConversationStateResponse);
+  rpc ListPendingApprovals(ListPendingApprovalsRequest) returns (ListPendingApprovalsResponse);
+}

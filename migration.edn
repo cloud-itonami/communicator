@@ -1,0 +1,4 @@
+{:schema "etzhayyim.migration/v1"
+ :source {:repository "etzhayyim/root" :revision "afe5f1d995162277d2fb98f762705b53f9f695fd" :path "60-apps/etzhayyim-project-communicator" :tree "297bc8efc6ecc4a15e611cd488879cbd96bd3ba8" :tracked-files 14 :bytes 59833}
+ :destination {:repository "etzhayyim/com-etzhayyim-app-communicator"}
+ :identity {:allowed-additions ["README.edn" "migration.edn"]}}

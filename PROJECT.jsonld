@@ -1,0 +1,120 @@
+{
+  "@context": {
+    "etzhayyim": "https://resources.etzhayyim.com/etzhayyim-project-resources/id/",
+    "schema": "https://schema.org/",
+    "dodaf": "https://resources.etzhayyim.com/etzhayyim-project-resources/id/DM2/",
+    "dependsOn": {
+      "@id": "etzhayyim:dependsOn",
+      "@type": "@id"
+    }
+  },
+  "@type": "etzhayyim:Project",
+  "@id": "https://resources.etzhayyim.com/etzhayyim-project-communicator/id/Project/etzhayyim-project-communicator",
+  "schema:name": "etzhayyim-project-communicator",
+  "schema:description": "External communication orchestration project. It composes, reviews, sends, and tracks conversation actions across Gmail/Outlook via existing mailer and external adapters while adapting message strategy using emotional analytics.",
+  "schema:url": "https://communicator.etzhayyim.com",
+  "dependsOn": [
+    "https://resources.etzhayyim.com/etzhayyim-project-mailer/id/Project/etzhayyim-project-mailer",
+    "https://resources.etzhayyim.com/etzhayyim-project-external-service-adapter/id/Project/etzhayyim-project-external-service-adapter",
+    "https://resources.etzhayyim.com/etzhayyim-project-emotional-analytics/id/Project/etzhayyim-project-emotional-analytics"
+  ],
+  "dodaf:capability": [
+    {
+      "@type": "dodaf:Capability",
+      "schema:name": "Cross-provider Communication Orchestration",
+      "schema:description": "Unify outbound and inbound communication workflows across Gmail and Outlook."
+    },
+    {
+      "@type": "dodaf:Capability",
+      "schema:name": "Emotion-aware Message Strategy",
+      "schema:description": "Adapt tone, pacing, and escalation style by consuming emotional analytics scores."
+    },
+    {
+      "@type": "dodaf:Capability",
+      "schema:name": "Human-in-the-loop Approval",
+      "schema:description": "Support mandatory draft approval for sensitive communication before dispatch."
+    },
+    {
+      "@type": "dodaf:Capability",
+      "schema:name": "Conversation Memory and Follow-up",
+      "schema:description": "Track thread memory, next actions, deadlines, and retry plans."
+    },
+    {
+      "@type": "dodaf:Capability",
+      "schema:name": "Risk and Compliance Guardrails",
+      "schema:description": "Run policy checks for PII, regulated content, and high-risk intent categories."
+    }
+  ],
+  "dodaf:performer": [
+    {
+      "@type": "dodaf:Performer",
+      "schema:name": "communicator-agent-component",
+      "schema:description": "Decision engine that plans conversation steps, draft generation, and response strategy."
+    },
+    {
+      "@type": "dodaf:Performer",
+      "schema:name": "delivery-orchestrator-component",
+      "schema:description": "Provider selection, send execution, retry/fallback, and delivery-state tracking."
+    },
+    {
+      "@type": "dodaf:Performer",
+      "schema:name": "conversation-memory-component",
+      "schema:description": "Conversation timeline, state transitions, and action-item persistence."
+    }
+  ],
+  "rdfUnifiedDocuments": {
+    "@type": "Dataset",
+    "name": "Unified top-level RDF/JSON-LD documents",
+    "description": "Consolidated from project top-level *.jsonld files except PROJECT.jsonld.",
+    "documents": [
+      {
+        "fileName": "scheduler.jsonld",
+        "content": {
+          "@context": [
+            "https://schema.org/",
+            {
+              "etzhayyim": "https://etzhayyim.com/schemas/",
+              "capabilities": "etzhayyim:capabilities",
+              "survivalIndicators": "etzhayyim:survivalIndicators",
+              "scheduler": "etzhayyim:scheduler",
+              "milestones": "etzhayyim:milestones",
+              "blockers": "etzhayyim:blockers",
+              "dependsOn": {
+                "@id": "etzhayyim:dependsOn",
+                "@type": "@id"
+              }
+            }
+          ],
+          "@type": "CreativeWork",
+          "name": "etzhayyim-project-communicator Scheduler",
+          "identifier": "etzhayyim-project-communicator/scheduler",
+          "description": "Project schedule (milestones) and blockers.",
+          "dateCreated": "2026-02-22T00:00:00+00:00",
+          "milestones": [
+            {
+              "name": "M1: API Contract Freeze",
+              "description": "Freeze communicator.proto and emotional_analytics.proto contract details and approval states.",
+              "dueDate": "2026-03-05"
+            },
+            {
+              "name": "M2: MVP Agent + Delivery Orchestrator",
+              "description": "Implement PlanConversation, GenerateDraft, DispatchMessage with Gmail/Outlook provider fallback.",
+              "dueDate": "2026-03-20"
+            },
+            {
+              "name": "M3: Emotion-aware Adaptive Replies",
+              "description": "Integrate emotional analytics scoring into response strategy and escalation policy.",
+              "dueDate": "2026-04-02"
+            }
+          ],
+          "blockers": [
+            {
+              "name": "Emotion analytics service availability",
+              "description": "Production endpoint and model versioning policy for etzhayyim-project-emotional-analytics must be finalized."
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

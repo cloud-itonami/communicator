@@ -1,0 +1,12 @@
+{
+  "name": "@etzhayyim/communicator-kotoba",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "kotoba impl of communicator (Consensys c-split, kotoba-E2E). Plaintext: policy-profile reference config + conversation stage-event ops timeline. E2E (sdk.encryptedWrite/Read, ADR-2605181100): per-person party PII + draft/delivery message payload + emotion analytics. Gmail/Outlook SEND action, LLM draft inference, and provider OAuth token custody stay etzhayyim via consent-capability.",
+  "license": "Apache-2.0",
+  "main": "src/index.ts",
+  "scripts": { "typecheck": "tsc --noEmit", "test": "vitest run" },
+  "dependencies": { "@etzhayyim/sdk": "git+https://github.com/etzhayyim/com-etzhayyim-sdk.git#12314a0cc5ac2feb49dd9789d5c002398acb6988" },
+  "devDependencies": { "@etzhayyim/sdk-mock": "git+https://github.com/etzhayyim/com-etzhayyim-sdk-mock.git#c857ff9be5310bf433bfe1e8d3c0f677e213d667", "typescript": "^5.6.0", "vitest": "^4.1.0" }
+}
