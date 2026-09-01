@@ -1,0 +1,202 @@
+;; contract_test.cljs — 「types.ts は proto を写したものだ」という主張を実際に当てる。
+;;
+;; types.ts のヘッダは自分でこう書いている:
+;;
+;;     // ─── Enum string unions (mirror communicator.proto, sans UNSPECIFIED) ──
+;;
+;; これは wire contract に対する主張であって、コメントである。proto に enum 値を
+;; 1 つ足しても、union から 1 つ落としても、TypeScript は何も言わない —— 別の
+;; ファイルだからである。vitest の 8 件も言わない（MockEtzhayyim に対して有効な値
+;; しか渡さないので、写し損ねた値には一度も触れない）。
+;;
+;; さらに TypeScript が**構造的に**捕まえられない主張がもう 1 つある。
+;;
+;;     export const RISK_LEVELS: readonly RiskLevel[] = ["low", "medium", "high", "blocked"];
+;;
+;; この配列から "blocked" を消しても型は通る —— 部分集合は `readonly RiskLevel[]`
+;; として妥当だからである。しかし `isRisk` はこの配列を見て判定するので、
+;; **消した瞬間から blocked が実行時に拒否される**。型検査は無言、テストも無言
+;; （既存の 8 件は blocked を一度も通さない）。
+(ns etzhayyim.communicator.contract-test
+  (:require [clojure.test :refer [deftest is testing]]
+            [clojure.string :as str]
+            [etzhayyim.communicator.repo :as repo]))
+
+(def proto-text (delay (repo/slurp* "proto/v1/communicator.proto")))
+(def types-text (delay (repo/slurp* "kotoba/src/types.ts")))
+(def registry-text (delay (repo/slurp* "kotoba/src/registry.ts")))
+
+;; ── 抽出 ───────────────────────────────────────────────────────────
+
+(defn proto-enums
+  "enum 名 → 値名のベクタ（UNSPECIFIED を含む生のまま）。"
+  [text]
+  (into {} (for [[_ nm body] (re-seq #"(?s)enum\s+(\w+)\s*\{(.*?)\}" text)]
+             [nm (->> (re-seq #"(?m)^\s*([A-Z0-9_]+)\s*=\s*\d+\s*;" body) (map second) vec)])))
+
+(defn ts-unions
+  "型名 → 文字列リテラルのベクタ。"
+  [text]
+  (into {} (for [[_ nm rhs] (re-seq #"(?s)export type (\w+)\s*=\s*(.*?);" text)]
+             [nm (vec (map second (re-seq #"\"([^\"]+)\"" rhs)))])))
+
+(defn ts-const-arrays
+  "定数名 → {:type 型名 :vals [...]}（`readonly T[]` と注釈されたものだけ）。"
+  [text]
+  (into {} (for [[_ nm ty body] (re-seq #"(?s)export const (\w+)\s*:\s*readonly\s+(\w+)\[\]\s*=\s*\[(.*?)\]\s*;" text)]
+             [nm {:type ty :vals (vec (map second (re-seq #"\"([^\"]+)\"" body)))}])))
+
+(defn ts-guards
+  "型名 → type-guard 関数名（`: v is T` と書かれたもの）。"
+  [text]
+  (into {} (for [[_ f t] (re-seq #"export function (\w+)\([^)]*\)\s*:\s*\w+ is (\w+)" text)]
+             [t f])))
+
+(defn camel->screaming [s]
+  (-> s (str/replace #"([a-z0-9])([A-Z])" "$1_$2") str/upper-case))
+
+(defn snake->lower-camel [s]
+  (let [parts (str/split (str/lower-case s) #"_")]
+    (apply str (first parts) (map str/capitalize (rest parts)))))
+
+(defn proto-enum->expected-union
+  "proto の enum 値名を types.ts の文字列リテラルに写す規則。
+   UNSPECIFIED を落とし、enum 名の prefix を剥がし、lowerCamel にする。"
+  [enum-name values]
+  (let [prefix (str (camel->screaming enum-name) "_")]
+    (->> values
+         (remove #(= % (str prefix "UNSPECIFIED")))
+         (map (fn [v]
+                (when-not (str/starts-with? v prefix)
+                  (throw (ex-info (str "proto enum value does not carry its enum's prefix: "
+                                       enum-name " / " v)
+                                  {:kind :prefix-violation})))
+                (snake->lower-camel (subs v (count prefix)))))
+         vec)))
+
+;; ── 主張 1: proto の enum は 1 つ残らず union に写っている ──────────
+
+(deftest every-proto-enum-has-a-matching-typescript-union
+  (repo/refuse-if-not-repo-root!)
+  (let [enums (proto-enums @proto-text)
+        unions (ts-unions @types-text)]
+    (is (= 7 (count enums))
+        (str "proto の enum は 7 つあるはず（測定 2026-09-01）。いま " (count enums)
+             " —— 増減したなら、この写しの表も見直す必要がある"))
+    (doseq [[nm values] (sort enums)]
+      (testing (str "proto enum " nm)
+        (let [expected (proto-enum->expected-union nm values)
+              actual (get unions nm)]
+          (is (some? actual)
+              (str "proto に enum " nm " が在るのに types.ts に `export type " nm "` が無い"))
+          (when actual
+            (is (= (set expected) (set actual))
+                (str nm ": proto と union が食い違っている。"
+                     " proto にしか無い=" (pr-str (sort (remove (set actual) expected)))
+                     " union にしか無い=" (pr-str (sort (remove (set expected) actual)))))
+            (is (= (count actual) (count (set actual)))
+                (str nm ": union に重複したリテラルが在る"))))))))
+
+;; ── 主張 2: 実行時配列は union を漏らさず並べている ─────────────────
+
+(deftest runtime-arrays-are-exhaustive-over-their-unions
+  (repo/refuse-if-not-repo-root!)
+  (let [unions (ts-unions @types-text)
+        arrays (ts-const-arrays @types-text)]
+    (is (= 4 (count arrays))
+        (str "`readonly T[]` の定数は 4 つあるはず（測定 2026-09-01）。いま " (count arrays)))
+    (doseq [[nm {:keys [type vals]}] (sort arrays)]
+      (testing (str "const " nm " : readonly " type "[]")
+        (let [u (get unions type)]
+          (is (some? u) (str nm " が参照する型 " type " の union が types.ts に無い"))
+          (when u
+            ;; TypeScript は部分集合を通す。ここが唯一この漏れを見る場所。
+            (is (= (set u) (set vals))
+                (str nm " が " type " を網羅していない。"
+                     " union にしか無い=" (pr-str (sort (remove (set vals) u)))
+                     " 配列にしか無い=" (pr-str (sort (remove (set u) vals)))))
+            (is (= (count vals) (count (set vals)))
+                (str nm " に重複が在る"))))))))
+
+;; ── 主張 3: 入力が受け取る閉じた enum には、実行時の判定がある ───────
+
+(def known-unvalidated
+  "**既知の穴の登録簿。ratchet であって免罪符ではない。**
+
+   `deliveryState` は `RecordMessageInput` が受け取る閉じた enum だが、
+   `recordMessage` は riskLevel / approvalState / provider / retryCount /
+   emotionSignals を検査しておきながら deliveryState を検査しない。
+   `deliveryState: \"banana\"` は今日 `{status: \"recorded\"}` を返し、
+   契約の外の値が E2E 封筒の中に入る。既存の 8 件は有効値しか渡さないので
+   一度も触れていない。
+
+   ここを直すときは types.ts に DELIVERY_STATES + isDelivery を足し、
+   recordMessage に 1 行足して、この集合から削る。集合が**縮む**方向に
+   このテストは緑のままなので、直す側の邪魔はしない。"
+  #{"DeliveryState"})
+
+(defn union-typed-record-input-fields
+  "`Record*Input` / `Register*Input` が受け取る、union 型のフィールド。"
+  [types-text unions]
+  (vec (for [[_ iname body] (re-seq #"(?s)export interface ((?:Record|Register)\w*Input)\s*\{(.*?)\n\}" types-text)
+             [_ f t] (re-seq #"(?m)^\s*(\w+)\??\s*:\s*([A-Za-z]+)" body)
+             :when (contains? unions t)]
+         {:interface iname :field f :type t})))
+
+(defn exported-function-bodies
+  "registry.ts の top-level exported function → {:input <入力インタフェース名> :body <本文>}。
+   本文は列 0 の `}` までで切る（この repo の関数はすべて top-level）。"
+  [text]
+  (into {} (for [[_ fname params body] (re-seq #"(?s)export async function (\w+)\(([^)]*)\)[^{]*\{(.*?)\n\}" text)]
+             [fname {:input (second (re-find #"input:\s*(\w+)" params))
+                     :body body}])))
+
+(deftest closed-enums-accepted-by-writes-are-checked-at-runtime
+  (repo/refuse-if-not-repo-root!)
+  (let [unions (ts-unions @types-text)
+        guards (ts-guards @types-text)
+        fns (exported-function-bodies @registry-text)
+        by-input (into {} (for [[_ {:keys [input] :as v}] fns :when input] [input v]))
+        fields (union-typed-record-input-fields @types-text (set (keys unions)))
+        ;; **フィールドごとに**見る。型ごとに見てはいけない ——
+        ;; `isProvider` は 2 箇所から呼ばれているので、片方の呼び出しを消しても
+        ;; 「その型の guard はどこかで呼ばれている」は真のままになる。実測
+        ;; 2026-09-01: 最初の版はまさにこれで、recordStageEvent から provider 検査を
+        ;; 丸ごと外しても緑だった。名乗っている理由で拒否したことがあるか、という
+        ;; 問い（CLAUDE.md「6 問」の 6 番目）に、型ごとの版は答えられない。
+        checked? (fn [{:keys [interface field type]}]
+                   (when-let [{:keys [body]} (get by-input interface)]
+                     (let [g (get guards type)
+                           guarded? (and g (boolean (re-find (re-pattern (str "\\b" g "\\s*\\(\\s*input\\." field "\\b")) body)))
+                           literals (get unions type)
+                           inline? (and (seq literals)
+                                        (every? #(re-find (re-pattern (str "input\\." field "\\s*[!=]==\\s*\"" % "\"")) body)
+                                                literals))]
+                       (or guarded? inline?))))
+        unchecked (->> fields (remove checked?) vec)]
+    (is (<= 6 (count fields))
+        (str "書き込み入力の union 型フィールドが少なすぎる（" (count fields)
+             "）。抽出が壊れている疑い —— 0 件を『違反なし』と読まないための床"))
+    (is (<= 3 (count by-input))
+        (str "registry.ts から入力を取る関数を " (count by-input)
+             " 個しか抽出できていない —— 本文の抽出が壊れている疑い"))
+    (println (str "  [checked] write-input union fields=" (count fields)
+                  " unchecked=" (pr-str (mapv #(str (:interface %) "." (:field %)) unchecked))))
+    (is (empty? (remove #(known-unvalidated (:type %)) unchecked))
+        (str "登録簿に無い閉じた enum が実行時に検査されないまま書き込みを通っている: "
+             (pr-str (mapv #(str (:interface %) "." (:field %) " : " (:type %))
+                           (remove #(known-unvalidated (:type %)) unchecked)))))))
+
+;; ── 主張 4: 4 つの collection / innerType 定数は proto の主題と対応する ──
+
+(deftest collection-constants-are-namespaced-under-this-app
+  (repo/refuse-if-not-repo-root!)
+  (let [consts (into {} (for [[_ nm v] (re-seq #"export const (\w+(?:_COLLECTION|_INNER_TYPE))\s*=\s*\"([^\"]+)\"" @types-text)]
+                          [nm v]))]
+    (is (= 4 (count consts))
+        (str "collection / innerType 定数は 4 つあるはず（plaintext 2 + E2E 2）。いま " (count consts)))
+    (doseq [[nm v] (sort consts)]
+      (is (str/starts-with? v "com.etzhayyim.apps.communicator.")
+          (str nm " の NSID が別の app の名前空間を指している: " v)))
+    (is (= 4 (count (set (vals consts))))
+        "2 つの定数が同じ NSID を指している（片方の record が他方を上書きする）")))

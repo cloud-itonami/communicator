@@ -109,4 +109,4 @@ See: `proto/v1/communicator.proto`
 
 ## App implementation plan
 
-See: `wasm/README.md`
+See: `appview/README.md`
