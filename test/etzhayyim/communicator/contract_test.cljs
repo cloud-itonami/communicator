@@ -138,36 +138,54 @@
 (defn union-typed-record-input-fields
   "`Record*Input` / `Register*Input` が受け取る、union 型のフィールド。"
   [types-text unions]
-  (for [[_ iname body] (re-seq #"(?s)export interface ((?:Record|Register)\w*Input)\s*\{(.*?)\n\}" types-text)
-        [_ f t] (re-seq #"(?m)^\s*(\w+)\??\s*:\s*([A-Za-z]+)" body)
-        :when (contains? unions t)]
-    {:interface iname :field f :type t}))
+  (vec (for [[_ iname body] (re-seq #"(?s)export interface ((?:Record|Register)\w*Input)\s*\{(.*?)\n\}" types-text)
+             [_ f t] (re-seq #"(?m)^\s*(\w+)\??\s*:\s*([A-Za-z]+)" body)
+             :when (contains? unions t)]
+         {:interface iname :field f :type t})))
+
+(defn exported-function-bodies
+  "registry.ts の top-level exported function → {:input <入力インタフェース名> :body <本文>}。
+   本文は列 0 の `}` までで切る（この repo の関数はすべて top-level）。"
+  [text]
+  (into {} (for [[_ fname params body] (re-seq #"(?s)export async function (\w+)\(([^)]*)\)[^{]*\{(.*?)\n\}" text)]
+             [fname {:input (second (re-find #"input:\s*(\w+)" params))
+                     :body body}])))
 
 (deftest closed-enums-accepted-by-writes-are-checked-at-runtime
   (repo/refuse-if-not-repo-root!)
   (let [unions (ts-unions @types-text)
         guards (ts-guards @types-text)
-        reg @registry-text
-        fields (vec (union-typed-record-input-fields @types-text (set (keys unions))))
-        ;; その型を実行時に判別する手段が registry.ts に在るか。
-        ;;   (a) その型の type-guard が呼ばれている、または
-        ;;   (b) その型の全リテラルが registry.ts に直書きされている（inline 比較）
-        checked? (fn [t]
-                   (let [g (get guards t)
-                         guard-called? (and g (boolean (re-find (re-pattern (str "\\b" g "\\s*\\(")) reg)))
-                         literals (get unions t)
-                         inline? (and (seq literals)
-                                      (every? #(str/includes? reg (str "\"" % "\"")) literals))]
-                     (or guard-called? inline?)))
-        unchecked (->> fields (remove #(checked? (:type %))) (map :type) set)]
+        fns (exported-function-bodies @registry-text)
+        by-input (into {} (for [[_ {:keys [input] :as v}] fns :when input] [input v]))
+        fields (union-typed-record-input-fields @types-text (set (keys unions)))
+        ;; **フィールドごとに**見る。型ごとに見てはいけない ——
+        ;; `isProvider` は 2 箇所から呼ばれているので、片方の呼び出しを消しても
+        ;; 「その型の guard はどこかで呼ばれている」は真のままになる。実測
+        ;; 2026-09-01: 最初の版はまさにこれで、recordStageEvent から provider 検査を
+        ;; 丸ごと外しても緑だった。名乗っている理由で拒否したことがあるか、という
+        ;; 問い（CLAUDE.md「6 問」の 6 番目）に、型ごとの版は答えられない。
+        checked? (fn [{:keys [interface field type]}]
+                   (when-let [{:keys [body]} (get by-input interface)]
+                     (let [g (get guards type)
+                           guarded? (and g (boolean (re-find (re-pattern (str "\\b" g "\\s*\\(\\s*input\\." field "\\b")) body)))
+                           literals (get unions type)
+                           inline? (and (seq literals)
+                                        (every? #(re-find (re-pattern (str "input\\." field "\\s*[!=]==\\s*\"" % "\"")) body)
+                                                literals))]
+                       (or guarded? inline?))))
+        unchecked (->> fields (remove checked?) vec)]
     (is (<= 6 (count fields))
         (str "書き込み入力の union 型フィールドが少なすぎる（" (count fields)
              "）。抽出が壊れている疑い —— 0 件を『違反なし』と読まないための床"))
+    (is (<= 3 (count by-input))
+        (str "registry.ts から入力を取る関数を " (count by-input)
+             " 個しか抽出できていない —— 本文の抽出が壊れている疑い"))
     (println (str "  [checked] write-input union fields=" (count fields)
-                  " unchecked-types=" (pr-str (sort unchecked))))
-    (is (empty? (remove known-unvalidated unchecked))
+                  " unchecked=" (pr-str (mapv #(str (:interface %) "." (:field %)) unchecked))))
+    (is (empty? (remove #(known-unvalidated (:type %)) unchecked))
         (str "登録簿に無い閉じた enum が実行時に検査されないまま書き込みを通っている: "
-             (pr-str (sort (remove known-unvalidated unchecked)))))))
+             (pr-str (mapv #(str (:interface %) "." (:field %) " : " (:type %))
+                           (remove #(known-unvalidated (:type %)) unchecked)))))))
 
 ;; ── 主張 4: 4 つの collection / innerType 定数は proto の主題と対応する ──
 
