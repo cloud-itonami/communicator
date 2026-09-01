@@ -1,0 +1,65 @@
+#!/usr/bin/env nbb
+;; run_tests.cljs — この repo の中の文書とコードが互いについて述べている主張を当てる。
+;;
+;;   nbb --classpath test run_tests.cljs
+;;   COMMUNICATOR_SOURCE_REPO=/path/to/etzhayyim/root nbb --classpath test run_tests.cljs
+;;
+;; `kotoba/` の vitest（8 件）とは別のものを見ている。あちらは MockEtzhayyim に対する
+;; registry の挙動、こちらは **ファイル間の約束**（proto ↔ types.ts、README ↔
+;; PROJECT.jsonld ↔ appview、quickstart ↔ テスト件数、migration.edn ↔ 出所）。
+;; どちらか一方では、もう一方が壊れたことに気づけない。
+;;
+;; 終了値は 3 つある:
+;;   0  すべて緑（skip があれば行数つきで印字する。skip は合格ではない）
+;;   1  主張のどれかが破れた
+;;   2  **測れなかった** —— repo のルートで走っていない / 必要なファイルが読めない。
+;;      0 でも 1 でもない値にするのは、「実行できなかった検査」が「実行して問題が
+;;      無かった検査」と同じ顔をしないため（CLAUDE.md「6 問」の 2 番目）。
+(ns run-tests
+  (:require [clojure.test :as t]
+            [etzhayyim.communicator.contract-test]
+            [etzhayyim.communicator.documents-test]
+            [etzhayyim.communicator.provenance-test :as prov]
+            [etzhayyim.communicator.repo :as repo]))
+
+(def green-marker
+  "scripts/maturity-loop/mutations.edn の :green-marker。
+   全部緑のときだけ印字する —— 緑でないときに出せば mutation が噛んだかどうかを
+   出力から判定できなくなる。"
+  "communicator contracts: all green")
+
+(def assertion-floor
+  "実際に走った assertion の下限。抽出（正規表現）が静かに 0 件を返して
+   『違反なし』を報告するのを防ぐ床。2026-09-01 の実測は 60 件超。"
+  40)
+
+(defmethod t/report [:cljs.test/default :end-run-tests] [m]
+  (let [ran (+ (:pass m 0) (:fail m 0) (:error m 0))
+        skips @prov/skipped]
+    (println (str "\nassertions=" ran " pass=" (:pass m 0)
+                  " fail=" (:fail m 0) " error=" (:error m 0)
+                  " skipped-checks=" (count skips)))
+    (doseq [s skips] (println (str "  skipped: " s)))
+    (cond
+      (not (t/successful? m))
+      (do (println "communicator contracts: FAILED") (js/process.exit 1))
+
+      (< ran assertion-floor)
+      (do (println (str "Refusing to report a pass: only " ran " assertions ran, floor is "
+                        assertion-floor ". The extraction is probably broken."))
+          (js/process.exit 2))
+
+      :else
+      (println (str "\n" green-marker
+                    (when (seq skips)
+                      (str " (with " (count skips) " check(s) skipped — see above; a skip is not a pass)")))))))
+
+(try
+  (repo/refuse-if-not-repo-root!)
+  (catch :default e
+    (println (ex-message e))
+    (js/process.exit 2)))
+
+(t/run-tests 'etzhayyim.communicator.contract-test
+             'etzhayyim.communicator.documents-test
+             'etzhayyim.communicator.provenance-test)
