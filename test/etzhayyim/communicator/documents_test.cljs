@@ -11,7 +11,7 @@
 ;; 足した瞬間に静かに嘘になる。
 (ns etzhayyim.communicator.documents-test
   (:require [clojure.test :refer [deftest is testing]]
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             [etzhayyim.communicator.repo :as repo]))
 
 (def readme (delay (repo/slurp* "README.md")))
