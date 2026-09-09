@@ -19,7 +19,7 @@
 ;; （既存の 8 件は blocked を一度も通さない）。
 (ns etzhayyim.communicator.contract-test
   (:require [clojure.test :refer [deftest is testing]]
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             [etzhayyim.communicator.repo :as repo]))
 
 (def proto-text (delay (repo/slurp* "proto/v1/communicator.proto")))
@@ -53,10 +53,10 @@
              [t f])))
 
 (defn camel->screaming [s]
-  (-> s (str/replace #"([a-z0-9])([A-Z])" "$1_$2") str/upper-case))
+  (-> s (str/replace #"([a-z0-9])([A-Z])" "$1_$2") str/upper))
 
 (defn snake->lower-camel [s]
-  (let [parts (str/split (str/lower-case s) #"_")]
+  (let [parts (str/split (str/lower s) #"_")]
     (apply str (first parts) (map str/capitalize (rest parts)))))
 
 (defn proto-enum->expected-union

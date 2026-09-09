@@ -20,7 +20,7 @@
 (ns etzhayyim.communicator.repo
   (:require ["fs" :as fs]
             ["path" :as path]
-            [clojure.string :as str]))
+            [kotoba.lang.text :as str]))
 
 (def root
   "テストは repo のルートから走る前提。sentinel を 2 つ確かめてから答える ——

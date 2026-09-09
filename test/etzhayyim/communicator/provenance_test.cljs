@@ -14,7 +14,7 @@
 (ns etzhayyim.communicator.provenance-test
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.edn :as edn]
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             ["fs" :as fs]
             ["path" :as path]
             [etzhayyim.communicator.repo :as repo]))
