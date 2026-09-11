@@ -8,7 +8,7 @@
 ;; 測って問題が無かった検査と同じ値を返す」形になる。ここは SKIPPED と印字し、
 ;; runner がそれを合格として数えない。
 ;;
-;;   COMMUNICATOR_SOURCE_REPO=/path/to/etzhayyim/root nbb --classpath test run_tests.cljs
+;;   COMMUNICATOR_SOURCE_REPO=/path/to/etzhayyim/root nbb --classpath test run_tests.cljk
 ;;
 ;; 既定の探索先は west のレイアウト（orgs/<org>/<repo>）を前提にした ../../etzhayyim/root。
 (ns etzhayyim.communicator.provenance-test

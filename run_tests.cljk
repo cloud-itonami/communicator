@@ -1,8 +1,8 @@
 #!/usr/bin/env nbb
-;; run_tests.cljs — この repo の中の文書とコードが互いについて述べている主張を当てる。
+;; run_tests.cljk — この repo の中の文書とコードが互いについて述べている主張を当てる。
 ;;
-;;   nbb --classpath test run_tests.cljs
-;;   COMMUNICATOR_SOURCE_REPO=/path/to/etzhayyim/root nbb --classpath test run_tests.cljs
+;;   nbb --classpath test run_tests.cljk
+;;   COMMUNICATOR_SOURCE_REPO=/path/to/etzhayyim/root nbb --classpath test run_tests.cljk
 ;;
 ;; `kotoba/` の vitest（8 件）とは別のものを見ている。あちらは MockEtzhayyim に対する
 ;; registry の挙動、こちらは **ファイル間の約束**（proto ↔ types.ts、README ↔
