@@ -18,7 +18,7 @@
 ;; **消した瞬間から blocked が実行時に拒否される**。型検査は無言、テストも無言
 ;; （既存の 8 件は blocked を一度も通さない）。
 (ns etzhayyim.communicator.contract-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [kotoba.lang.text :as str]
             [etzhayyim.communicator.repo :as repo]))
 

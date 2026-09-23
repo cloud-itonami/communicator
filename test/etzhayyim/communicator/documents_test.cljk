@@ -10,7 +10,7 @@
 ;; executed」と書いているが、**書いた日の測定**であって、次に誰かがテストを 1 件
 ;; 足した瞬間に静かに嘘になる。
 (ns etzhayyim.communicator.documents-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [kotoba.lang.text :as str]
             [etzhayyim.communicator.repo :as repo]))
 

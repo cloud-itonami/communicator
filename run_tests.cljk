@@ -16,7 +16,7 @@
 ;;      0 でも 1 でもない値にするのは、「実行できなかった検査」が「実行して問題が
 ;;      無かった検査」と同じ顔をしないため（CLAUDE.md「6 問」の 2 番目）。
 (ns run-tests
-  (:require [clojure.test :as t]
+  (:require [kotoba.test :as t]
             [etzhayyim.communicator.contract-test]
             [etzhayyim.communicator.documents-test]
             [etzhayyim.communicator.provenance-test :as prov]
