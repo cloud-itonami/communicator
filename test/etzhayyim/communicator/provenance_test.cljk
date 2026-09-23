@@ -13,7 +13,7 @@
 ;; 既定の探索先は west のレイアウト（orgs/<org>/<repo>）を前提にした ../../etzhayyim/root。
 (ns etzhayyim.communicator.provenance-test
   (:require [clojure.test :refer [deftest is testing]]
-            [clojure.edn :as edn]
+            [kotoba.lang.edn :as edn]
             [kotoba.lang.text :as str]
             ["fs" :as fs]
             ["path" :as path]
