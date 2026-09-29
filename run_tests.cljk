@@ -14,7 +14,7 @@
 ;;   1  主張のどれかが破れた
 ;;   2  **測れなかった** —— repo のルートで走っていない / 必要なファイルが読めない。
 ;;      0 でも 1 でもない値にするのは、「実行できなかった検査」が「実行して問題が
-;;      無かった検査」と同じ顔をしないため（CLAUDE.md「6 問」の 2 番目）。
+;;      無かった検査」と同じ顔をしないため（AGENTS.md「6 問」の 2 番目）。
 (ns run-tests
   (:require [kotoba.test :as t]
             [etzhayyim.communicator.contract-test]

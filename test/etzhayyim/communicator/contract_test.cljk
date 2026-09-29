@@ -163,7 +163,7 @@
         ;; 「その型の guard はどこかで呼ばれている」は真のままになる。実測
         ;; 2026-09-01: 最初の版はまさにこれで、recordStageEvent から provider 検査を
         ;; 丸ごと外しても緑だった。名乗っている理由で拒否したことがあるか、という
-        ;; 問い（CLAUDE.md「6 問」の 6 番目）に、型ごとの版は答えられない。
+        ;; 問い（AGENTS.md「6 問」の 6 番目）に、型ごとの版は答えられない。
         checked? (fn [{:keys [interface field type]}]
                    (when-let [{:keys [body]} (get by-input interface)]
                      (let [g (get guards type)
